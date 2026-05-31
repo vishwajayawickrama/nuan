@@ -33,6 +33,8 @@ Nuan is intentionally a no-build browser extension. Files are organized by brows
 - `tests/e2e/`
   - Playwright tests that load the unpacked extension in Chromium.
 
+For runtime boundaries, sequence diagrams, storage schema, and architectural invariants, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Asset Paths
 
 Manifest paths are resolved from the project root:

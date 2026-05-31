@@ -70,6 +70,7 @@ Version: `0.1.1.alpha.2`
 ```
 
 See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for entry points and ownership notes.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for runtime architecture, diagrams, storage schema, and invariants.
 See [docs/CHROME_WEB_STORE_PUBLISHING.md](docs/CHROME_WEB_STORE_PUBLISHING.md) for Chrome Web Store packaging and submission steps.
 See [docs/MANUAL_QA_CHECKLIST.md](docs/MANUAL_QA_CHECKLIST.md) for lightweight manual verification steps.
 See [docs/TESTING.md](docs/TESTING.md) for automated test setup and commands.
