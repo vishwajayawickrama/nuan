@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nuan Analytics</title>
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body class="options analytics-page">
+    <canvas class="dot-canvas" data-dot-canvas aria-hidden="true"></canvas>
+    <main>
+      <header class="app-header">
+        <div class="brand">
+          <img src="../../../icons/logo.png" alt="" width="56" height="56">
+          <div>
+            <p class="eyebrow">Nuan</p>
+            <h1>Analytics</h1>
+            <p>Review social limits and overall active browsing patterns.</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="section-heading analytics-title">
+        <h2>Browsing dashboard</h2>
+        <span id="browsingMode">domain only</span>
+      </section>
+
+      <section class="analytics-grid analytics-grid-four" aria-label="Browsing summary">
+        <article class="field-card analytics-stat">
+          <span>Today</span>
+          <strong id="browsingToday">Loading</strong>
+        </article>
+        <article class="field-card analytics-stat">
+          <span>7-day total</span>
+          <strong id="browsingWeek">Loading</strong>
+        </article>
+        <article class="field-card analytics-stat">
+          <span>Daily avg</span>
+          <strong id="browsingAverage">Loading</strong>
+        </article>
+        <article class="field-card analytics-stat">
+          <span>Top domain</span>
+          <strong id="browsingTopDomain">Loading</strong>
+        </article>
+      </section>
+
+      <section class="field-card analytics-section">
+        <div class="section-heading">
+          <h2>Recent browsing days</h2>
+          <span id="browsingDayCount">0 days</span>
+        </div>
+        <div id="browsingDailyTrend" class="bar-list" aria-live="polite"></div>
+      </section>
+
+      <section class="field-card analytics-section">
+        <div class="section-heading">
+          <h2>Hourly activity</h2>
+          <span>today</span>
+        </div>
+        <div id="hourlyActivity" class="hour-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="field-card analytics-section">
+        <div class="section-heading">
+          <h2>Top browsing domains</h2>
+          <span id="topDomainCount">0 domains</span>
+        </div>
+        <div id="browsingDomainUsage" class="bar-list" aria-live="polite"></div>
+      </section>
+
+      <section class="field-card analytics-section">
+        <div class="section-heading">
+          <h2>Recent sessions</h2>
+          <span>domain only</span>
+        </div>
+        <div id="recentSessions" class="analytics-list" aria-live="polite"></div>
+      </section>
+
+      <section class="section-heading analytics-title">
+        <h2>Social tracking</h2>
+        <span>limit domains</span>
+      </section>
+
+      <section class="analytics-grid" aria-label="Social usage summary">
+        <article class="field-card analytics-stat">
+          <span>Today</span>
+          <strong id="todayTotal">Loading</strong>
+        </article>
+        <article class="field-card analytics-stat">
+          <span>No-use streak</span>
+          <strong id="streakDays">Loading</strong>
+        </article>
+      </section>
+
+      <section class="field-card analytics-section">
+        <div class="section-heading">
+          <h2>Recent days</h2>
+          <span id="dayCount">0 days</span>
+        </div>
+        <div id="dailyUsage" class="analytics-list" aria-live="polite"></div>
+      </section>
+
+      <section class="field-card analytics-section">
+        <div class="section-heading">
+          <h2>Most-used domains</h2>
+        </div>
+        <div id="domainUsage" class="analytics-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="../../shared/dot-canvas.js"></script>
+    <script src="analytics.js"></script>
+  </body>
+</html>

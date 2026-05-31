@@ -2,7 +2,7 @@
 
 Reclaim the present.
 
-Nuan is a Chromium Manifest V3 extension that limits active social media browsing time. It only counts time while a tracked domain is active in the focused browser window.
+Nuan is a Chromium Manifest V3 extension that limits active social media browsing time and tracks overall active browsing patterns locally. It only counts time while a domain is active in the focused browser window.
 
 Version: `0.1.0.alpha.1`
 
@@ -17,7 +17,11 @@ Version: `0.1.0.alpha.1`
 - Chip-based tracked-domain editor with add, remove, and confirmation flows.
 - Themed popup and settings UI based on the `vishwajayawickrama-site` paper/dot-canvas visual language.
 - In-page tracking toast, one-minute warning, and final `3`, `2`, `1` countdown.
+- In-page blocked toast with the next reset time before blocked tracked tabs close.
 - Popup status with remaining time, blocked state, and reset countdown.
+- Analytics page for daily tracked time, no-use streaks, and most-used domains.
+- Overall browsing dashboard with daily trends, hourly activity, top domains, and recent domain-only sessions.
+- Local-only browsing analytics with excluded private domains, idle pause, and clear-data controls.
 
 ## Default Tracked Domains
 
@@ -46,9 +50,14 @@ Version: `0.1.0.alpha.1`
 │   ├── content/
 │   │   └── content.js
 │   ├── shared/
-│   │   └── dot-canvas.js
+│   │   ├── dot-canvas.js
+│   │   └── logic/
+│   │       └── core.js
 │   └── ui/
 │       ├── styles.css
+│       ├── analytics/
+│       │   ├── analytics.html
+│       │   └── analytics.js
 │       ├── options/
 │       │   ├── options.html
 │       │   └── options.js
@@ -56,11 +65,14 @@ Version: `0.1.0.alpha.1`
 │           ├── popup.html
 │           └── popup.js
 ├── docs/
+├── tests/
 └── TODOs.md
 ```
 
 See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for entry points and ownership notes.
 See [docs/CHROME_WEB_STORE_PUBLISHING.md](docs/CHROME_WEB_STORE_PUBLISHING.md) for Chrome Web Store packaging and submission steps.
+See [docs/MANUAL_QA_CHECKLIST.md](docs/MANUAL_QA_CHECKLIST.md) for lightweight manual verification steps.
+See [docs/TESTING.md](docs/TESTING.md) for automated test setup and commands.
 
 ## Load in Chromium
 
@@ -76,13 +88,25 @@ After changing `manifest.json`, background code, content scripts, icons, or HTML
 
 This project has no build step. Chrome loads the source files directly from `manifest.json`.
 
-Useful checks:
+Useful commands:
+
+```sh
+npm install
+npm run check
+npm run test:unit
+npm run test:e2e
+npm run ci
+```
+
+The underlying static checks are:
 
 ```sh
 python3 -m json.tool manifest.json
 node --check src/background/background.js
 node --check src/content/content.js
 node --check src/shared/dot-canvas.js
+node --check src/shared/logic/core.js
+node --check src/ui/analytics/analytics.js
 node --check src/ui/options/options.js
 node --check src/ui/popup/popup.js
 ```
@@ -92,3 +116,4 @@ node --check src/ui/popup/popup.js
 - Extension pages use relative paths from their HTML file location.
 - `src/background/background.js` also references `src/content/content.js` for fallback programmatic injection.
 - Keep extension assets that Chrome resolves from the manifest, such as icons, at paths referenced by `manifest.json`.
+- Browsing analytics stores domains only. It does not store page titles, URL paths, query strings, or incognito/private tabs.

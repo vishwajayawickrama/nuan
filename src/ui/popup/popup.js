@@ -2,7 +2,12 @@ const timeValue = document.getElementById("timeValue");
 const metricLabel = document.getElementById("metricLabel");
 const details = document.getElementById("details");
 const stateBadge = document.getElementById("stateBadge");
+const analyticsButton = document.getElementById("analyticsButton");
 const optionsButton = document.getElementById("optionsButton");
+
+analyticsButton.addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("src/ui/analytics/analytics.html") });
+});
 
 optionsButton.addEventListener("click", () => {
   chrome.runtime.openOptionsPage();

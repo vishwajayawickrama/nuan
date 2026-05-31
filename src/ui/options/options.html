@@ -48,6 +48,23 @@
           <textarea id="domains" class="domains-bridge" rows="12" spellcheck="false"></textarea>
         </section>
 
+        <section class="field-card browsing-card">
+          <div class="section-heading">
+            <label for="browsingAnalyticsEnabled">Overall browsing analytics</label>
+            <span>domain only</span>
+          </div>
+          <label class="toggle-row">
+            <input id="browsingAnalyticsEnabled" type="checkbox">
+            <span>Track active focused web browsing time</span>
+          </label>
+          <p class="muted">Nuan stores domains only. Full URLs, page titles, and private/incognito tabs are not recorded.</p>
+          <label for="excludedDomains">Excluded private domains</label>
+          <textarea id="excludedDomains" rows="8" spellcheck="false"></textarea>
+          <div class="actions inline-actions">
+            <button id="clearBrowsingData" class="secondary-action" type="button">Clear browsing data</button>
+          </div>
+        </section>
+
         <div class="actions">
           <button type="submit">Save</button>
           <span id="message" role="status"></span>

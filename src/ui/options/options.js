@@ -26,6 +26,9 @@ const addDomainButton = document.getElementById("addDomainButton");
 const selectedDomains = document.getElementById("selectedDomains");
 const availableDomains = document.getElementById("availableDomains");
 const domainCount = document.getElementById("domainCount");
+const browsingAnalyticsEnabled = document.getElementById("browsingAnalyticsEnabled");
+const excludedDomains = document.getElementById("excludedDomains");
+const clearBrowsingData = document.getElementById("clearBrowsingData");
 const confirmModal = document.getElementById("confirmModal");
 const confirmMessage = document.getElementById("confirmMessage");
 const cancelRemoveDomain = document.getElementById("cancelRemoveDomain");
@@ -53,6 +56,13 @@ form.addEventListener("submit", async (event) => {
       domains: activeDomains
     }
   });
+  const browsingResponse = await chrome.runtime.sendMessage({
+    type: "saveBrowsingAnalyticsSettings",
+    settings: {
+      enabled: browsingAnalyticsEnabled.checked,
+      excludedDomains: splitDomainTextarea(excludedDomains.value)
+    }
+  });
 
   if (!response.ok) {
     message.textContent = response.error;
@@ -61,8 +71,17 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
+  if (!browsingResponse.ok) {
+    message.textContent = browsingResponse.error;
+    message.className = "error";
+    showToast(browsingResponse.error, "error");
+    return;
+  }
+
   limitMinutes.value = response.settings.limitMinutes;
   activeDomains = response.settings.domains;
+  browsingAnalyticsEnabled.checked = browsingResponse.settings.enabled;
+  excludedDomains.value = browsingResponse.settings.excludedDomains.join("\n");
   renderDomains();
   message.textContent = "";
   message.className = "";
@@ -106,6 +125,16 @@ confirmModal.addEventListener("click", (event) => {
   }
 });
 
+clearBrowsingData.addEventListener("click", async () => {
+  const response = await chrome.runtime.sendMessage({ type: "clearBrowsingAnalytics" });
+  if (!response.ok) {
+    showToast(response.error || "Unable to clear browsing data.", "error");
+    return;
+  }
+
+  showToast("Browsing data cleared", "success");
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !confirmModal.hidden) {
     closeRemoveModal();
@@ -114,8 +143,11 @@ document.addEventListener("keydown", (event) => {
 
 async function loadSettings() {
   const settings = await chrome.runtime.sendMessage({ type: "getSettings" });
+  const browsingSettings = await chrome.runtime.sendMessage({ type: "getBrowsingSettings" });
   limitMinutes.value = settings.limitMinutes;
   activeDomains = settings.domains;
+  browsingAnalyticsEnabled.checked = browsingSettings.enabled;
+  excludedDomains.value = browsingSettings.excludedDomains.join("\n");
   renderDomains();
 }
 
@@ -193,6 +225,13 @@ function normalizeDomain(value) {
 
 function syncDomainsField() {
   domains.value = activeDomains.join("\n");
+}
+
+function splitDomainTextarea(value) {
+  return value
+    .split(/\n|,/)
+    .map(normalizeDomain)
+    .filter(Boolean);
 }
 
 function stepLimit(direction) {

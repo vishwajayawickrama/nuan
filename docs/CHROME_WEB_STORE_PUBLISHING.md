@@ -186,22 +186,23 @@ Suggested screenshot set:
 Current permissions in `manifest.json`:
 
 ```json
-"permissions": ["alarms", "scripting", "storage", "tabs"],
+"permissions": ["alarms", "idle", "scripting", "storage", "tabs"],
 "host_permissions": ["<all_urls>"]
 ```
 
 Why they exist:
 
 - `alarms`: periodic usage ticking.
+- `idle`: pause overall browsing analytics while Chrome reports the user idle or locked.
 - `scripting`: fallback content-script injection when a tracked tab has no receiving content script yet.
-- `storage`: local settings and timer state.
+- `storage`: local settings, timer state, and local analytics.
 - `tabs`: active tab/window tracking and closing tracked tabs when time is used.
-- `<all_urls>`: checking whether the active tab matches configured tracked domains.
+- `<all_urls>`: checking active tab domains locally for configured social tracking and domain-only browsing analytics.
 
 Privacy statement draft:
 
 ```text
-Nuan stores settings and timer state locally using Chrome storage. It does not sell, transmit, or share browsing data with external services. The extension checks active tab URLs locally to determine whether a domain is in the configured tracked-domain list.
+Nuan stores settings, timer state, and domain-only analytics locally using Chrome storage. It does not sell, transmit, or share browsing data with external services. Overall browsing analytics stores hostnames only and does not store page titles, URL paths, query strings, or incognito/private tabs. Users can exclude private domains and clear browsing analytics data from settings.
 ```
 
 Before submitting, create or link a privacy policy page if the dashboard requires one for the declared permissions or data usage.

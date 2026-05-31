@@ -40,6 +40,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "showBlockedCloseToast") {
+    showBlockedCloseToast(message.resetAt, message.closeDelayMs);
+    sendResponse({ ok: true });
+    return true;
+  }
+
   return false;
 });
 
@@ -112,6 +118,11 @@ function showToast(message, tone, durationMs) {
       toast.hidden = true;
     }
   }, durationMs);
+}
+
+function showBlockedCloseToast(resetAt, closeDelayMs = 1600) {
+  const resetText = resetAt ? formatResetTime(resetAt) : "the next reset";
+  showToast(`Social media is blocked. You can return at ${resetText}.`, "blocked", closeDelayMs + 800);
 }
 
 function renderCountdown(seconds, resetAt) {
@@ -195,6 +206,10 @@ function injectStyles() {
       background: #9a6700;
     }
 
+    #${TOAST_ID}[data-tone="blocked"] {
+      background: #8a2b20;
+    }
+
     #${OVERLAY_ID} {
       position: fixed;
       inset: 0;
@@ -252,5 +267,12 @@ function formatLongDuration(ms) {
   }
 
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function formatResetTime(timestamp) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(timestamp));
 }
 })();
