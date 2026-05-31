@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Nuan",
-  "version": "0.1.0",
-  "version_name": "0.1.0.alpha.1",
+  "version": "0.1.1",
+  "version_name": "0.1.1.alpha.2",
   "description": "Reclaim the present by limiting active social media browsing time.",
   "permissions": ["alarms", "idle", "scripting", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],

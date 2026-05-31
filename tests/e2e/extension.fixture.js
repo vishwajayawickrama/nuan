@@ -1,11 +1,12 @@
 const path = require("node:path");
+const os = require("node:os");
 const { chromium, test: base, expect } = require("@playwright/test");
 
 const extensionPath = path.resolve(__dirname, "../..");
 
 const test = base.extend({
   context: async ({}, use) => {
-    const userDataDir = path.join("/private/tmp", `nuan-extension-profile-${Date.now()}-${Math.random()}`);
+    const userDataDir = path.join(os.tmpdir(), `nuan-extension-profile-${Date.now()}-${Math.random()}`);
     const context = await chromium.launchPersistentContext(userDataDir, {
       headless: false,
       args: [

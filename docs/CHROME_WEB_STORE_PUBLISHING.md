@@ -43,8 +43,8 @@ Update `manifest.json` before every upload:
 
 ```json
 {
-  "version": "0.1.0",
-  "version_name": "0.1.0.alpha.1"
+  "version": "0.1.1",
+  "version_name": "0.1.1.alpha.2"
 }
 ```
 

@@ -4,7 +4,7 @@ Reclaim the present.
 
 Nuan is a Chromium Manifest V3 extension that limits active social media browsing time and tracks overall active browsing patterns locally. It only counts time while a domain is active in the focused browser window.
 
-Version: `0.1.0.alpha.1`
+Version: `0.1.1.alpha.2`
 
 ## Features
 
