@@ -140,3 +140,4 @@ Living roadmap for Nuan. Keep items small enough to verify, and move completed w
 - [x] Node unit test framework.
 - [x] Playwright extension smoke test framework.
 - [x] GitHub Actions test workflow.
+- [x] Runtime performance pass: active-only alarms, cached storage reads, unchanged-write skipping, and on-demand content injection.

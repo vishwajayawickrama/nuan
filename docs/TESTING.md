@@ -59,8 +59,9 @@ Current smoke coverage verifies:
 - settings save successfully
 - browsing analytics can be cleared
 - clean analytics storage renders empty states
+- regular webpages do not receive Nuan content script elements
 
-Browser profiles are isolated per test under `/private/tmp`.
+Browser profiles are isolated per test under the OS temp directory returned by `os.tmpdir()`.
 
 ## Sandbox Note
 

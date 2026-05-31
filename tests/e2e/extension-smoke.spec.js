@@ -41,3 +41,15 @@ test("analytics page renders empty states from clean storage", async ({ extensio
   await expect(analytics.locator("#browsingDailyTrend")).toContainText("No browsing time recorded yet.");
   await expect(analytics.locator("#dailyUsage")).toContainText("No tracked social time recorded yet.");
 });
+
+test("regular webpages do not receive Nuan content script elements", async ({ context, extensionPage }) => {
+  const popup = await extensionPage("src/ui/popup/popup.html");
+  await clearExtensionStorage(popup);
+
+  const page = await context.newPage();
+  await page.goto("data:text/html,<main><h1>Regular page</h1></main>");
+
+  await expect(page.locator("#time-guard-toast")).toHaveCount(0);
+  await expect(page.locator("#time-guard-countdown")).toHaveCount(0);
+  await expect(page.locator("#time-guard-styles")).toHaveCount(0);
+});

@@ -61,68 +61,79 @@ const DEFAULT_STATE = {
 };
 
 const RESET_INTERVAL_MS = 6 * 60 * 60 * 1000;
-const TICK_ALARM = "social-media-time-guard-tick";
+const LEGACY_TICK_ALARM = "social-media-time-guard-tick";
+const ACTIVE_SYNC_ALARM = "nuan-active-sync";
+const SOCIAL_ENFORCE_ALARM = "nuan-social-enforce";
 const BLOCKED_NOTICE_CLOSE_DELAY_MS = 1600;
 const MAX_RECENT_BROWSING_SESSIONS = 500;
+const STORAGE_KEYS = [
+  "settings",
+  "state",
+  "analytics",
+  "browsingSettings",
+  "browsingState",
+  "browsingAnalytics"
+];
+
+let runtimeCache = null;
+let hydratePromise = null;
+let processQueue = Promise.resolve();
+let processScheduled = false;
+let queuedProcessOptions = {};
 
 chrome.runtime.onInstalled.addListener(async () => {
   await ensureDefaults();
   configureIdleDetection();
-  await chrome.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
-  await refreshActiveTracking();
-  await refreshBrowsingTracking();
+  await clearLegacyAlarm();
+  await processActiveContext({ reason: "installed" });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await ensureDefaults();
   configureIdleDetection();
-  await chrome.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
-  await refreshActiveTracking();
-  await refreshBrowsingTracking();
+  await clearLegacyAlarm();
+  await processActiveContext({ reason: "startup" });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === TICK_ALARM) {
-    updateUsageAndEnforce();
-    updateBrowsingUsage();
+  if (alarm.name === ACTIVE_SYNC_ALARM || alarm.name === SOCIAL_ENFORCE_ALARM) {
+    scheduleProcessActiveContext({ reason: alarm.name });
   }
 });
 
 chrome.tabs.onActivated.addListener(() => {
-  refreshActiveTracking();
-  refreshBrowsingTracking();
+  scheduleProcessActiveContext({ reason: "tab-activated" });
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  refreshActiveTracking({ removedTabId: tabId });
-  refreshBrowsingTracking({ removedTabId: tabId });
+  scheduleProcessActiveContext({ reason: "tab-removed", removedTabId: tabId });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.url || changeInfo.status === "complete") {
-    handleTabUrlChange(tabId, changeInfo, tab);
-    refreshBrowsingTracking();
+    handleTabUpdated(tabId, changeInfo, tab).catch(() => null);
   }
 });
 
 chrome.windows.onFocusChanged.addListener(() => {
-  refreshActiveTracking();
-  refreshBrowsingTracking();
+  scheduleProcessActiveContext({ reason: "window-focus-changed" });
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.settings) {
-    updateUsageAndEnforce();
+  if (area !== "local") {
+    return;
   }
 
-  if (area === "local" && changes.browsingSettings) {
-    refreshBrowsingTracking();
+  applyStorageChangesToCache(changes);
+
+  if (changes.settings || changes.browsingSettings) {
+    scheduleProcessActiveContext({ reason: "settings-changed" });
   }
 });
 
 if (chrome.idle?.onStateChanged) {
   chrome.idle.onStateChanged.addListener((idleState) => {
-    updateBrowsingUsage({ idleState });
+    scheduleProcessActiveContext({ reason: "idle-changed", idleState });
   });
 }
 
@@ -192,103 +203,170 @@ function configureIdleDetection() {
   }
 }
 
+async function clearLegacyAlarm() {
+  try {
+    await chrome.alarms.clear(LEGACY_TICK_ALARM);
+  } catch (_error) {
+    // Older installs may not have the legacy alarm.
+  }
+}
+
 async function ensureDefaults() {
-  const data = await chrome.storage.local.get([
-    "settings",
-    "state",
-    "analytics",
-    "browsingSettings",
-    "browsingState",
-    "browsingAnalytics"
-  ]);
+  if (runtimeCache) {
+    return runtimeCache;
+  }
+
+  if (hydratePromise) {
+    return hydratePromise;
+  }
+
+  hydratePromise = hydrateRuntimeCache();
+  try {
+    runtimeCache = await hydratePromise;
+    return runtimeCache;
+  } finally {
+    hydratePromise = null;
+  }
+}
+
+async function hydrateRuntimeCache() {
+  const data = await chrome.storage.local.get(STORAGE_KEYS);
   const updates = {};
+  const cache = {
+    settings: data.settings ? normalizeSettings(data.settings) : DEFAULT_SETTINGS,
+    state: data.state ? { ...DEFAULT_STATE, ...data.state } : DEFAULT_STATE,
+    analytics: data.analytics ? normalizeAnalytics(data.analytics) : createDefaultAnalytics(),
+    browsingSettings: data.browsingSettings
+      ? normalizeBrowsingSettings(data.browsingSettings)
+      : DEFAULT_BROWSING_SETTINGS,
+    browsingState: data.browsingState
+      ? { ...createDefaultBrowsingState(), ...data.browsingState }
+      : createDefaultBrowsingState(),
+    browsingAnalytics: data.browsingAnalytics
+      ? normalizeBrowsingAnalytics(data.browsingAnalytics)
+      : createDefaultBrowsingAnalytics()
+  };
 
-  if (!data.settings) {
-    updates.settings = DEFAULT_SETTINGS;
-  } else {
-    updates.settings = normalizeSettings(data.settings);
-  }
-
-  if (!data.state) {
-    updates.state = DEFAULT_STATE;
-  }
-
-  if (!data.analytics) {
-    updates.analytics = createDefaultAnalytics();
-  }
-
-  if (!data.browsingSettings) {
-    updates.browsingSettings = DEFAULT_BROWSING_SETTINGS;
-  } else {
-    updates.browsingSettings = normalizeBrowsingSettings(data.browsingSettings);
-  }
-
-  if (!data.browsingState) {
-    updates.browsingState = createDefaultBrowsingState();
-  }
-
-  if (!data.browsingAnalytics) {
-    updates.browsingAnalytics = createDefaultBrowsingAnalytics();
+  for (const key of STORAGE_KEYS) {
+    if (!isSameData(data[key], cache[key])) {
+      updates[key] = cache[key];
+    }
   }
 
   if (Object.keys(updates).length > 0) {
     await chrome.storage.local.set(updates);
   }
+
+  return cache;
+}
+
+function applyStorageChangesToCache(changes) {
+  if (!runtimeCache) {
+    return;
+  }
+
+  if (changes.settings) {
+    runtimeCache.settings = normalizeSettings(changes.settings.newValue);
+  }
+
+  if (changes.state) {
+    runtimeCache.state = { ...DEFAULT_STATE, ...changes.state.newValue };
+  }
+
+  if (changes.analytics) {
+    runtimeCache.analytics = normalizeAnalytics(changes.analytics.newValue);
+  }
+
+  if (changes.browsingSettings) {
+    runtimeCache.browsingSettings = normalizeBrowsingSettings(changes.browsingSettings.newValue);
+  }
+
+  if (changes.browsingState) {
+    runtimeCache.browsingState = { ...createDefaultBrowsingState(), ...changes.browsingState.newValue };
+  }
+
+  if (changes.browsingAnalytics) {
+    runtimeCache.browsingAnalytics = normalizeBrowsingAnalytics(changes.browsingAnalytics.newValue);
+  }
+}
+
+function cloneData(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function isSameData(first, second) {
+  return JSON.stringify(first) === JSON.stringify(second);
+}
+
+async function setStorageIfChanged(updates) {
+  await ensureDefaults();
+  const changed = {};
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (!isSameData(runtimeCache[key], value)) {
+      changed[key] = cloneData(value);
+    }
+  }
+
+  if (Object.keys(changed).length === 0) {
+    return false;
+  }
+
+  await chrome.storage.local.set(changed);
+  for (const [key, value] of Object.entries(changed)) {
+    runtimeCache[key] = cloneData(value);
+  }
+
+  return true;
 }
 
 async function getSettings() {
   await ensureDefaults();
-  const { settings } = await chrome.storage.local.get("settings");
-  return normalizeSettings(settings);
+  return cloneData(runtimeCache.settings);
 }
 
 async function getState() {
   await ensureDefaults();
-  const { state } = await chrome.storage.local.get("state");
-  return { ...DEFAULT_STATE, ...state };
+  return cloneData(runtimeCache.state);
 }
 
 async function getStoredAnalytics() {
   await ensureDefaults();
-  const { analytics } = await chrome.storage.local.get("analytics");
-  return normalizeAnalytics(analytics);
+  return cloneData(runtimeCache.analytics);
 }
 
 async function getBrowsingSettings() {
   await ensureDefaults();
-  const { browsingSettings } = await chrome.storage.local.get("browsingSettings");
-  return normalizeBrowsingSettings(browsingSettings);
+  return cloneData(runtimeCache.browsingSettings);
 }
 
 async function getBrowsingState() {
   await ensureDefaults();
-  const { browsingState } = await chrome.storage.local.get("browsingState");
-  return { ...createDefaultBrowsingState(), ...browsingState };
+  return cloneData(runtimeCache.browsingState);
 }
 
 async function getStoredBrowsingAnalytics() {
   await ensureDefaults();
-  const { browsingAnalytics } = await chrome.storage.local.get("browsingAnalytics");
-  return normalizeBrowsingAnalytics(browsingAnalytics);
+  return cloneData(runtimeCache.browsingAnalytics);
 }
 
 async function setState(state) {
-  await chrome.storage.local.set({ state: { ...DEFAULT_STATE, ...state } });
+  await setStorageIfChanged({ state: { ...DEFAULT_STATE, ...state } });
 }
 
 async function setStateAndAnalytics(state, analytics) {
-  await chrome.storage.local.set({
+  await setStorageIfChanged({
     state: { ...DEFAULT_STATE, ...state },
     analytics: normalizeAnalytics(analytics)
   });
 }
 
 async function setBrowsingState(state) {
-  await chrome.storage.local.set({ browsingState: { ...createDefaultBrowsingState(), ...state } });
+  await setStorageIfChanged({ browsingState: { ...createDefaultBrowsingState(), ...state } });
 }
 
 async function setBrowsingStateAndAnalytics(state, analytics) {
-  await chrome.storage.local.set({
+  await setStorageIfChanged({
     browsingState: { ...createDefaultBrowsingState(), ...state },
     browsingAnalytics: normalizeBrowsingAnalytics(analytics)
   });
@@ -303,28 +381,122 @@ async function saveSettings(rawSettings) {
     };
   }
 
-  await chrome.storage.local.set({ settings });
-  await refreshActiveTracking();
+  await setStorageIfChanged({ settings });
+  await processActiveContext({ reason: "settings-saved" });
   return { ok: true, settings };
 }
 
 async function saveBrowsingAnalyticsSettings(rawSettings = {}) {
   const settings = normalizeBrowsingSettings(rawSettings);
   await updateBrowsingUsage({ skipRefresh: true });
-  await chrome.storage.local.set({ browsingSettings: settings });
-  await refreshBrowsingTracking();
+  await setStorageIfChanged({ browsingSettings: settings });
+  await processActiveContext({ reason: "browsing-settings-saved" });
   return { ok: true, settings };
 }
 
 async function clearBrowsingAnalytics() {
   const clearedState = createDefaultBrowsingState();
   const clearedAnalytics = createDefaultBrowsingAnalytics();
-  await chrome.storage.local.set({
+  await setStorageIfChanged({
     browsingState: clearedState,
     browsingAnalytics: clearedAnalytics
   });
-  await refreshBrowsingTracking();
+  await processActiveContext({ reason: "browsing-analytics-cleared" });
   return { ok: true };
+}
+
+function scheduleProcessActiveContext(options = {}) {
+  queuedProcessOptions = mergeProcessOptions(queuedProcessOptions, options);
+
+  if (processScheduled) {
+    return processQueue;
+  }
+
+  processScheduled = true;
+  processQueue = processQueue
+    .catch(() => null)
+    .then(async () => {
+      await Promise.resolve();
+      const processOptions = queuedProcessOptions;
+      queuedProcessOptions = {};
+      processScheduled = false;
+      await processActiveContext(processOptions);
+    });
+
+  return processQueue;
+}
+
+function mergeProcessOptions(current, next) {
+  return {
+    ...current,
+    ...next,
+    removedTabId: typeof next.removedTabId === "number" ? next.removedTabId : current.removedTabId,
+    idleState: next.idleState || current.idleState,
+    reason: [current.reason, next.reason].filter(Boolean).join(",")
+  };
+}
+
+async function processActiveContext(options = {}) {
+  await ensureDefaults();
+  await refreshActiveTracking(options);
+  await refreshBrowsingTracking(options);
+  await updateDynamicAlarms();
+}
+
+async function updateDynamicAlarms() {
+  await ensureDefaults();
+
+  const now = Date.now();
+  const limitMs = runtimeCache.settings.limitMinutes * 60 * 1000;
+  const state = runtimeCache.state;
+  const browsingState = runtimeCache.browsingState;
+  const socialActive = Boolean(
+    state.activeTabId &&
+      state.activeSessionStart &&
+      state.activeDomain &&
+      state.windowStart &&
+      state.usedMs < limitMs
+  );
+  const browsingActive = Boolean(
+    runtimeCache.browsingSettings.enabled &&
+      browsingState.idleState === "active" &&
+      browsingState.activeTabId &&
+      browsingState.activeSessionStart &&
+      browsingState.activeDomain
+  );
+
+  if (socialActive) {
+    const enforceAt = Math.max(now, now + Math.max(0, limitMs - state.usedMs));
+    await ensureOneShotAlarm(SOCIAL_ENFORCE_ALARM, enforceAt);
+  } else {
+    await chrome.alarms.clear(SOCIAL_ENFORCE_ALARM);
+  }
+
+  if (socialActive || browsingActive) {
+    await ensureRepeatingAlarm(ACTIVE_SYNC_ALARM, 1);
+  } else {
+    await chrome.alarms.clear(ACTIVE_SYNC_ALARM);
+  }
+}
+
+async function ensureOneShotAlarm(name, when) {
+  const existing = await chrome.alarms.get(name);
+  if (existing && Math.abs(existing.scheduledTime - when) <= 1000 && !existing.periodInMinutes) {
+    return;
+  }
+
+  await chrome.alarms.clear(name);
+  await chrome.alarms.create(name, { when });
+}
+
+async function ensureRepeatingAlarm(name, periodInMinutes) {
+  const existing = await chrome.alarms.get(name);
+  if (existing?.periodInMinutes === periodInMinutes) {
+    return;
+  }
+
+  await chrome.alarms.clear(name);
+  await chrome.alarms.create(name, { periodInMinutes });
 }
 
 async function updateUsageAndEnforce(options = {}) {
@@ -345,6 +517,7 @@ async function updateUsageAndEnforce(options = {}) {
     state.activeDomain = null;
     await setStateAndAnalytics(state, analytics);
     await closeTrackedTabs(settings, state.windowStart + RESET_INTERVAL_MS);
+    await updateDynamicAlarms();
     return state;
   }
 
@@ -486,12 +659,19 @@ async function refreshBrowsingTracking(options = {}) {
   });
 }
 
+async function handleTabUpdated(tabId, changeInfo, tab) {
+  await handleTabUrlChange(tabId, changeInfo, tab);
+
+  if (tab?.active) {
+    scheduleProcessActiveContext({ reason: "active-tab-updated", updatedTabId: tabId });
+  }
+}
+
 async function handleTabUrlChange(tabId, changeInfo, tab) {
   const settings = await getSettings();
   const url = tab?.url || tab?.pendingUrl;
 
   if (!isTrackedUrl(url, settings.domains)) {
-    await refreshActiveTracking();
     return;
   }
 
@@ -502,10 +682,7 @@ async function handleTabUrlChange(tabId, changeInfo, tab) {
     }
 
     await safeCloseTabWithBlockedNotice(tab, status.resetAt);
-    return;
   }
-
-  await refreshActiveTracking();
 }
 
 async function getStatus(options = {}) {
@@ -636,6 +813,7 @@ async function handleCountdownFinished(sender) {
     analytics
   );
   await closeTrackedTabs(settings, state.windowStart ? state.windowStart + RESET_INTERVAL_MS : null);
+  await updateDynamicAlarms();
   return { ok: true };
 }
 
@@ -649,6 +827,10 @@ function accrueActiveTime(state, analytics, now) {
   }
 
   const elapsed = Math.max(0, now - state.activeSessionStart);
+  if (elapsed <= 0) {
+    return { state, analytics };
+  }
+
   const nextAnalytics = state.activeDomain
     ? recordUsage(analytics, state.activeSessionStart, now, state.activeDomain)
     : analytics;
@@ -665,14 +847,15 @@ function accrueActiveTime(state, analytics, now) {
 
 function accrueBrowsingTime(state, analytics, now) {
   if (!state.activeSessionStart || !state.activeDomain) {
-    return {
-      state: { ...state, lastSyncAt: now },
-      analytics
-    };
+    return { state, analytics };
   }
 
   const start = state.lastSyncAt || state.activeSessionStart;
   const end = Math.max(start, now);
+  if (end <= start) {
+    return { state, analytics };
+  }
+
   const nextAnalytics = recordBrowsingUsage(analytics, start, end, state.activeDomain, state.activeSessionStart);
 
   return {

@@ -5,11 +5,11 @@ Nuan is intentionally a no-build browser extension. Files are organized by brows
 ## Entry Points
 
 - `manifest.json`
-  - Declares permissions, icons, the background service worker, content scripts, popup, and options page.
+  - Declares permissions, icons, the background service worker, popup, and options page.
 - `src/background/background.js`
   - Owns extension state, alarms, idle-aware active tab tracking, domain matching, enforcement, analytics, and settings persistence.
 - `src/content/content.js`
-  - Runs on webpages and renders in-page tracking notices, warnings, and the final countdown overlay.
+  - Is injected only when needed and renders in-page tracking notices, warnings, and the final countdown overlay.
 - `src/ui/popup/popup.html`
   - Popup markup shown from the toolbar action.
 - `src/ui/popup/popup.js`
@@ -42,10 +42,13 @@ Manifest paths are resolved from the project root:
 - `icons/icon48.png`
 - `icons/icon128.png`
 - `src/background/background.js`
-- `src/content/content.js`
 - `src/ui/popup/popup.html`
 - `src/ui/analytics/analytics.html`
 - `src/ui/options/options.html`
+
+Programmatic injection paths are also resolved from the project root:
+
+- `src/content/content.js`
 
 HTML paths are resolved from each HTML file location. For example, `src/ui/options/options.html` references:
 
@@ -69,4 +72,4 @@ HTML paths are resolved from each HTML file location. For example, `src/ui/optio
 - Put webpage-injected logic in `src/content/`.
 - Put extension page UI under `src/ui/`.
 - Put UI utilities shared by popup/options under `src/shared/`.
-- Reload the unpacked extension after changing manifest paths, service worker code, content script code, icons, or HTML.
+- Reload the unpacked extension after changing manifest paths, service worker code, programmatically injected content code, icons, or HTML.

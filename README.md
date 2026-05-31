@@ -82,7 +82,7 @@ See [docs/TESTING.md](docs/TESTING.md) for automated test setup and commands.
 4. Select this project folder.
 5. Open the extension popup or settings page to check the timer and change domains.
 
-After changing `manifest.json`, background code, content scripts, icons, or HTML paths, reload the unpacked extension from `chrome://extensions`.
+After changing `manifest.json`, background code, programmatically injected content code, icons, or HTML paths, reload the unpacked extension from `chrome://extensions`.
 
 ## Development
 

@@ -35,6 +35,13 @@ test("records social usage across local day boundaries", () => {
   assert.equal(analytics.days["2026-01-02"].domains["reddit.com"], 60000);
 });
 
+test("does not change social analytics for zero-duration usage", () => {
+  const start = new Date(2026, 0, 1, 12, 0, 0).getTime();
+  const analytics = logic.createDefaultAnalytics(start);
+
+  assert.deepEqual(logic.recordSocialUsage(analytics, start, start, "reddit.com"), analytics);
+});
+
 test("calculates no-use streak from completed local days", () => {
   const createdAt = new Date(2026, 0, 1, 9, 0, 0).getTime();
   const now = new Date(2026, 0, 5, 9, 0, 0).getTime();
@@ -58,6 +65,13 @@ test("records browsing usage into day, hour, global domain, and recent sessions"
   assert.equal(analytics.domains["github.com"].totalMs, 120000);
   assert.equal(analytics.recentSessions.length, 1);
   assert.equal(analytics.recentSessions[0].durationMs, 120000);
+});
+
+test("does not change browsing analytics for zero-duration usage", () => {
+  const start = new Date(2026, 0, 1, 12, 0, 0).getTime();
+  const analytics = logic.createDefaultBrowsingAnalytics(start);
+
+  assert.deepEqual(logic.recordBrowsingUsage(analytics, start, start, "github.com", start), analytics);
 });
 
 test("extends existing recent browsing session when session start matches", () => {

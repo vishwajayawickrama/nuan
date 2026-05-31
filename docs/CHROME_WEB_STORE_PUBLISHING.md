@@ -24,7 +24,7 @@ Before packaging:
   - service worker console
   - popup DevTools
   - options page DevTools
-  - a page where the content script runs
+  - a tracked page showing the injected warning/countdown UI
 
 Run local checks:
 
@@ -192,9 +192,9 @@ Current permissions in `manifest.json`:
 
 Why they exist:
 
-- `alarms`: periodic usage ticking.
+- `alarms`: active-session sync and social enforcement alarms. No repeating alarm runs while tracking is inactive.
 - `idle`: pause overall browsing analytics while Chrome reports the user idle or locked.
-- `scripting`: fallback content-script injection when a tracked tab has no receiving content script yet.
+- `scripting`: programmatic injection of warning/countdown UI only on tracked social pages.
 - `storage`: local settings, timer state, and local analytics.
 - `tabs`: active tab/window tracking and closing tracked tabs when time is used.
 - `<all_urls>`: checking active tab domains locally for configured social tracking and domain-only browsing analytics.
