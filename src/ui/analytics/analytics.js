@@ -38,7 +38,7 @@ async function renderAnalytics() {
 
 async function requestAnalytics(type) {
   try {
-    return await chrome.runtime.sendMessage({ type });
+    return await NuanRuntime.sendMessage({ type });
   } catch (error) {
     return {
       ok: false,

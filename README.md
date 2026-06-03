@@ -106,6 +106,7 @@ python3 -m json.tool manifest.json
 node --check src/background/background.js
 node --check src/content/content.js
 node --check src/shared/dot-canvas.js
+node --check src/shared/runtime-messaging.js
 node --check src/shared/logic/core.js
 node --check src/ui/analytics/analytics.js
 node --check src/ui/options/options.js

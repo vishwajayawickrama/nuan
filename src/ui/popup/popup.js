@@ -19,7 +19,7 @@ setInterval(render, 1000);
 async function render() {
   let status;
   try {
-    status = await chrome.runtime.sendMessage({ type: "getStatus" });
+    status = await NuanRuntime.sendMessage({ type: "getStatus" });
   } catch (error) {
     showError(error?.message || "Unable to contact the extension background worker.");
     return;

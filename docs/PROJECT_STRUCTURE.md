@@ -26,6 +26,8 @@ Nuan is intentionally a no-build browser extension. Files are organized by brows
   - Shared styles for popup, options, and analytics pages.
 - `src/shared/dot-canvas.js`
   - Shared animated dot-canvas background used by extension UI pages.
+- `src/shared/runtime-messaging.js`
+  - Callback-based runtime messaging helper used by extension UI pages.
 - `src/shared/logic/core.js`
   - Pure domain, date, social analytics, and browsing analytics helpers used by tests and loaded by the background worker.
 - `tests/unit/`

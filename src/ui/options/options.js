@@ -49,20 +49,30 @@ form.addEventListener("submit", async (event) => {
   message.textContent = "";
   syncDomainsField();
 
-  const response = await chrome.runtime.sendMessage({
-    type: "saveSettings",
-    settings: {
-      limitMinutes: limitMinutes.value,
-      domains: activeDomains
-    }
-  });
-  const browsingResponse = await chrome.runtime.sendMessage({
-    type: "saveBrowsingAnalyticsSettings",
-    settings: {
-      enabled: browsingAnalyticsEnabled.checked,
-      excludedDomains: splitDomainTextarea(excludedDomains.value)
-    }
-  });
+  let response;
+  let browsingResponse;
+  try {
+    response = await NuanRuntime.sendMessage({
+      type: "saveSettings",
+      settings: {
+        limitMinutes: limitMinutes.value,
+        domains: activeDomains
+      }
+    });
+    browsingResponse = await NuanRuntime.sendMessage({
+      type: "saveBrowsingAnalyticsSettings",
+      settings: {
+        enabled: browsingAnalyticsEnabled.checked,
+        excludedDomains: splitDomainTextarea(excludedDomains.value)
+      }
+    });
+  } catch (error) {
+    const errorMessage = error?.message || "Unable to contact the extension background worker.";
+    message.textContent = errorMessage;
+    message.className = "error";
+    showToast(errorMessage, "error");
+    return;
+  }
 
   if (!response.ok) {
     message.textContent = response.error;
@@ -126,7 +136,14 @@ confirmModal.addEventListener("click", (event) => {
 });
 
 clearBrowsingData.addEventListener("click", async () => {
-  const response = await chrome.runtime.sendMessage({ type: "clearBrowsingAnalytics" });
+  let response;
+  try {
+    response = await NuanRuntime.sendMessage({ type: "clearBrowsingAnalytics" });
+  } catch (error) {
+    showToast(error?.message || "Unable to clear browsing data.", "error");
+    return;
+  }
+
   if (!response.ok) {
     showToast(response.error || "Unable to clear browsing data.", "error");
     return;
@@ -142,8 +159,19 @@ document.addEventListener("keydown", (event) => {
 });
 
 async function loadSettings() {
-  const settings = await chrome.runtime.sendMessage({ type: "getSettings" });
-  const browsingSettings = await chrome.runtime.sendMessage({ type: "getBrowsingSettings" });
+  let settings;
+  let browsingSettings;
+  try {
+    settings = await NuanRuntime.sendMessage({ type: "getSettings" });
+    browsingSettings = await NuanRuntime.sendMessage({ type: "getBrowsingSettings" });
+  } catch (error) {
+    const errorMessage = error?.message || "Unable to load settings.";
+    message.textContent = errorMessage;
+    message.className = "error";
+    showToast(errorMessage, "error");
+    return;
+  }
+
   limitMinutes.value = settings.limitMinutes;
   activeDomains = settings.domains;
   browsingAnalyticsEnabled.checked = browsingSettings.enabled;
