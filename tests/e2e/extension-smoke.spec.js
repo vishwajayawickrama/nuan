@@ -53,3 +53,44 @@ test("regular webpages do not receive Nuan content script elements", async ({ co
   await expect(page.locator("#time-guard-countdown")).toHaveCount(0);
   await expect(page.locator("#time-guard-styles")).toHaveCount(0);
 });
+
+test("settings lock keeps values visible but disables editing", async ({ extensionPage }) => {
+  const options = await extensionPage("src/ui/options/options.html");
+  await clearExtensionStorage(options);
+  await options.reload();
+
+  await options.evaluate(async () => {
+    const now = Date.now();
+    await chrome.storage.local.set({
+      settings: { limitMinutes: 5, domains: ["facebook.com", "instagram.com"] },
+      settingsLock: { lastChangeAt: now - 1000, monthlyChanges: 1, monthKey: "2099-12" }
+    });
+  });
+  await options.reload();
+
+  await expect(options.locator("#limitMinutes")).toHaveValue("5");
+  await expect(options.locator("#settingsLockBanner")).toBeVisible();
+  await expect(options.locator("#settingsLockBanner")).toContainText("locked");
+  await expect(options.locator("#limitMinutes")).toBeDisabled();
+  await expect(options.locator("#addDomainButton")).toBeDisabled();
+  await expect(options.locator("form button[type='submit']")).toBeDisabled();
+});
+
+test("settings lock allows a change after the weekly window", async ({ extensionPage }) => {
+  const options = await extensionPage("src/ui/options/options.html");
+  await clearExtensionStorage(options);
+  await options.reload();
+
+  await options.evaluate(async () => {
+    const now = Date.now();
+    await chrome.storage.local.set({
+      settings: { limitMinutes: 5, domains: ["facebook.com", "instagram.com"] },
+      settingsLock: { lastChangeAt: now - 10 * 24 * 60 * 60 * 1000, monthlyChanges: 0, monthKey: "2099-12" }
+    });
+  });
+  await options.reload();
+
+  await options.locator("#limitMinutes").fill("3");
+  await options.locator("form button[type='submit']").click();
+  await expect(options.locator("#toast")).toContainText("Settings saved");
+});

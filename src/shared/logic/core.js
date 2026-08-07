@@ -8,6 +8,8 @@
   root.NuanLogic = logic;
 })(typeof globalThis !== "undefined" ? globalThis : self, () => {
   const MAX_RECENT_BROWSING_SESSIONS = 500;
+  const SETTINGS_CHANGE_LOCK_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const SETTINGS_CHANGE_MONTH_LIMIT = 2;
 
   function getHostname(url) {
     if (typeof url !== "string" || !url) {
@@ -368,20 +370,91 @@
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackLimit;
   }
 
+  function getMonthKey(now = Date.now()) {
+    const date = new Date(now);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function createDefaultSettingsLock() {
+    return {
+      lastChangeAt: null,
+      monthlyChanges: 0,
+      monthKey: null
+    };
+  }
+
+  function normalizeSettingsLock(lock = {}) {
+    const normalized = createDefaultSettingsLock();
+    normalized.lastChangeAt = Number.isFinite(lock.lastChangeAt) ? Math.max(0, lock.lastChangeAt) : null;
+    normalized.monthlyChanges = Math.max(0, Number.parseInt(lock.monthlyChanges, 10) || 0);
+    normalized.monthKey = typeof lock.monthKey === "string" && /^\d{4}-\d{2}$/.test(lock.monthKey)
+      ? lock.monthKey
+      : null;
+    return normalized;
+  }
+
+  function isSettingsChangeAllowed(lock, now = Date.now()) {
+    const normalized = normalizeSettingsLock(lock);
+    const monthKey = getMonthKey(now);
+    const monthlyChanges = normalized.monthKey === monthKey ? normalized.monthlyChanges : 0;
+
+    if (monthlyChanges >= SETTINGS_CHANGE_MONTH_LIMIT) {
+      return {
+        allowed: false,
+        reason: "monthly",
+        nextChangeAt: null,
+        monthKey
+      };
+    }
+
+    if (normalized.lastChangeAt && now < normalized.lastChangeAt + SETTINGS_CHANGE_LOCK_WEEK_MS) {
+      return {
+        allowed: false,
+        reason: "weekly",
+        nextChangeAt: normalized.lastChangeAt + SETTINGS_CHANGE_LOCK_WEEK_MS,
+        monthKey
+      };
+    }
+
+    return {
+      allowed: true,
+      reason: null,
+      nextChangeAt: null,
+      monthKey
+    };
+  }
+
+  function applySettingsChange(lock, now = Date.now()) {
+    const normalized = normalizeSettingsLock(lock);
+    const monthKey = getMonthKey(now);
+    const monthlyChanges = normalized.monthKey === monthKey ? normalized.monthlyChanges : 0;
+
+    normalized.monthlyChanges = monthlyChanges + 1;
+    normalized.monthKey = monthKey;
+    normalized.lastChangeAt = now;
+    return normalized;
+  }
+
   return {
     MAX_RECENT_BROWSING_SESSIONS,
+    SETTINGS_CHANGE_LOCK_WEEK_MS,
+    SETTINGS_CHANGE_MONTH_LIMIT,
+    applySettingsChange,
     createBrowsingDay,
     createBrowsingDomainStats,
     createDefaultAnalytics,
     createDefaultBrowsingAnalytics,
+    createDefaultSettingsLock,
     domainMatches,
     formatLocalDate,
     getHostname,
     getMatchedDomain,
+    getMonthKey,
     getNextBrowsingBoundary,
     getNextLocalDayStart,
     getNoUseStreakDays,
     isExcludedDomain,
+    isSettingsChangeAllowed,
     normalizeAnalytics,
     normalizeBrowsingAnalytics,
     normalizeBrowsingDay,
@@ -391,6 +464,7 @@
     normalizeDomain,
     normalizeDomains,
     normalizeLimit,
+    normalizeSettingsLock,
     recordBrowsingUsage,
     recordSocialUsage
   };

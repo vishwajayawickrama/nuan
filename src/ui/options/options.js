@@ -35,10 +35,13 @@ const cancelRemoveDomain = document.getElementById("cancelRemoveDomain");
 const confirmRemoveDomain = document.getElementById("confirmRemoveDomain");
 const message = document.getElementById("message");
 const toast = document.getElementById("toast");
+const settingsLockBanner = document.getElementById("settingsLockBanner");
+const lockBannerMessage = document.getElementById("lockBannerMessage");
 
 let activeDomains = [];
 let pendingRemovalDomain = "";
 let toastTimeout = 0;
+let lockState = { allowed: true, monthlyUsed: 0, monthlyLimit: 2, nextChangeAt: null };
 
 loadSettings();
 decreaseLimit.append(createIcon("minus"));
@@ -48,6 +51,11 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   message.textContent = "";
   syncDomainsField();
+
+  if (!lockState.allowed) {
+    showToast(describeLockMessage(), "error");
+    return;
+  }
 
   let response;
   let browsingResponse;
@@ -77,6 +85,10 @@ form.addEventListener("submit", async (event) => {
   if (!response.ok) {
     message.textContent = response.error;
     message.className = "error";
+    if (response.lock) {
+      lockState = { ...lockState, ...response.lock };
+      applyLockState();
+    }
     showToast(response.error, "error");
     return;
   }
@@ -95,6 +107,7 @@ form.addEventListener("submit", async (event) => {
   renderDomains();
   message.textContent = "";
   message.className = "";
+  refreshLockState();
   showToast("Settings saved", "success");
 });
 
@@ -161,9 +174,11 @@ document.addEventListener("keydown", (event) => {
 async function loadSettings() {
   let settings;
   let browsingSettings;
+  let lock;
   try {
     settings = await NuanRuntime.sendMessage({ type: "getSettings" });
     browsingSettings = await NuanRuntime.sendMessage({ type: "getBrowsingSettings" });
+    lock = await NuanRuntime.sendMessage({ type: "getSettingsLock" });
   } catch (error) {
     const errorMessage = error?.message || "Unable to load settings.";
     message.textContent = errorMessage;
@@ -177,6 +192,11 @@ async function loadSettings() {
   browsingAnalyticsEnabled.checked = browsingSettings.enabled;
   excludedDomains.value = browsingSettings.excludedDomains.join("\n");
   renderDomains();
+
+  if (lock?.ok) {
+    lockState = { allowed: lock.allowed, monthlyUsed: lock.monthlyUsed, monthlyLimit: lock.monthlyLimit, nextChangeAt: lock.nextChangeAt };
+    applyLockState();
+  }
 }
 
 function renderDomains() {
@@ -226,6 +246,11 @@ function createAvailableChip(domain) {
 }
 
 function addDomain(value) {
+  if (!lockState.allowed) {
+    showToast(describeLockMessage(), "error");
+    return;
+  }
+
   const domain = normalizeDomain(value);
   if (!domain || activeDomains.includes(domain)) {
     domainInput.value = "";
@@ -263,12 +288,22 @@ function splitDomainTextarea(value) {
 }
 
 function stepLimit(direction) {
+  if (!lockState.allowed) {
+    showToast(describeLockMessage(), "error");
+    return;
+  }
+
   const currentValue = Number.parseInt(limitMinutes.value, 10);
   const current = Number.isFinite(currentValue) ? currentValue : 1;
   limitMinutes.value = Math.max(1, current + direction);
 }
 
 function openRemoveModal(domain) {
+  if (!lockState.allowed) {
+    showToast(describeLockMessage(), "error");
+    return;
+  }
+
   pendingRemovalDomain = domain;
   confirmMessage.textContent = `${domain} will stop counting toward your browsing limit after you save.`;
   confirmModal.hidden = false;
@@ -278,6 +313,78 @@ function openRemoveModal(domain) {
 function closeRemoveModal() {
   pendingRemovalDomain = "";
   confirmModal.hidden = true;
+}
+
+async function refreshLockState() {
+  let lock;
+  try {
+    lock = await NuanRuntime.sendMessage({ type: "getSettingsLock" });
+  } catch (_error) {
+    return;
+  }
+
+  if (!lock?.ok) {
+    return;
+  }
+
+  lockState = {
+    allowed: lock.allowed,
+    monthlyUsed: lock.monthlyUsed,
+    monthlyLimit: lock.monthlyLimit,
+    nextChangeAt: lock.nextChangeAt
+  };
+  applyLockState();
+}
+
+const SETTING_LOCKABLE_CONTROLS = [
+  "limitMinutes",
+  "decreaseLimit",
+  "increaseLimit",
+  "domainInput",
+  "addDomainButton"
+];
+
+function applyLockState() {
+  const locked = !lockState.allowed;
+
+  for (const id of SETTING_LOCKABLE_CONTROLS) {
+    const control = document.getElementById(id);
+    if (control) {
+      control.disabled = locked;
+    }
+  }
+
+  for (const chip of selectedDomains.querySelectorAll(".domain-chip")) {
+    chip.disabled = locked;
+  }
+
+  for (const chip of availableDomains.querySelectorAll(".domain-chip")) {
+    chip.disabled = locked;
+  }
+
+  const submitButton = form.querySelector("button[type='submit']");
+  if (submitButton) {
+    submitButton.disabled = locked;
+  }
+
+  if (!locked) {
+    settingsLockBanner.hidden = true;
+    return;
+  }
+
+  settingsLockBanner.hidden = false;
+  lockBannerMessage.textContent = describeLockMessage();
+}
+
+function describeLockMessage() {
+  const monthly = `${lockState.monthlyUsed}/${lockState.monthlyLimit} changes used this month.`;
+  if (lockState.nextChangeAt) {
+    const label = new Intl.DateTimeFormat(undefined, { dateStyle: "long", timeStyle: "short" }).format(
+      new Date(lockState.nextChangeAt)
+    );
+    return `Settings are locked. You can change them again on ${label}. ${monthly}`;
+  }
+  return `Settings are locked. ${monthly}`;
 }
 
 function showToast(text, variant = "success") {
