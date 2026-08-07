@@ -43,13 +43,16 @@ const outDir = path.resolve(__dirname, "../resources/screenshots");
   // Locked state
   await page.evaluate(async () => {
     const now = Date.now();
+    const current = new Date();
+    const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
     await chrome.storage.local.set({
       settings: { limitMinutes: 5, domains: ["facebook.com", "instagram.com", "tiktok.com", "reddit.com"] },
-      settingsLock: { lastChangeAt: now - 2 * 24 * 60 * 60 * 1000, monthlyChanges: 1, monthKey: "2099-12" }
+      settingsLock: { lastChangeAt: now - 2 * 24 * 60 * 60 * 1000, monthlyChanges: 1, monthKey }
     });
   });
   await page.reload();
-  await page.waitForTimeout(600);
+  await page.locator("#settingsLockBanner").waitFor({ state: "visible" });
+  await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(outDir, "settings-locked.png") });
 
   await context.close();

@@ -375,6 +375,11 @@
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
   }
 
+  function getNextMonthStart(now = Date.now()) {
+    const date = new Date(now);
+    return new Date(date.getFullYear(), date.getMonth() + 1, 1, 0, 0, 0, 0).getTime();
+  }
+
   function createDefaultSettingsLock() {
     return {
       lastChangeAt: null,
@@ -383,9 +388,10 @@
     };
   }
 
-  function normalizeSettingsLock(lock = {}) {
+  function normalizeSettingsLock(lock = {}, now = Date.now()) {
     const normalized = createDefaultSettingsLock();
-    normalized.lastChangeAt = Number.isFinite(lock.lastChangeAt) ? Math.max(0, lock.lastChangeAt) : null;
+    const rawLastChangeAt = Number.isFinite(lock.lastChangeAt) ? Math.max(0, lock.lastChangeAt) : null;
+    normalized.lastChangeAt = rawLastChangeAt === null ? null : Math.min(rawLastChangeAt, now);
     normalized.monthlyChanges = Math.max(0, Number.parseInt(lock.monthlyChanges, 10) || 0);
     normalized.monthKey = typeof lock.monthKey === "string" && /^\d{4}-\d{2}$/.test(lock.monthKey)
       ? lock.monthKey
@@ -394,7 +400,7 @@
   }
 
   function isSettingsChangeAllowed(lock, now = Date.now()) {
-    const normalized = normalizeSettingsLock(lock);
+    const normalized = normalizeSettingsLock(lock, now);
     const monthKey = getMonthKey(now);
     const monthlyChanges = normalized.monthKey === monthKey ? normalized.monthlyChanges : 0;
 
@@ -402,7 +408,7 @@
       return {
         allowed: false,
         reason: "monthly",
-        nextChangeAt: null,
+        nextChangeAt: getNextMonthStart(now),
         monthKey
       };
     }
@@ -425,7 +431,7 @@
   }
 
   function applySettingsChange(lock, now = Date.now()) {
-    const normalized = normalizeSettingsLock(lock);
+    const normalized = normalizeSettingsLock(lock, now);
     const monthKey = getMonthKey(now);
     const monthlyChanges = normalized.monthKey === monthKey ? normalized.monthlyChanges : 0;
 
@@ -452,6 +458,7 @@
     getMonthKey,
     getNextBrowsingBoundary,
     getNextLocalDayStart,
+    getNextMonthStart,
     getNoUseStreakDays,
     isExcludedDomain,
     isSettingsChangeAllowed,

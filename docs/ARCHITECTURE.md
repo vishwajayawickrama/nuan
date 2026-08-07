@@ -192,7 +192,7 @@ sequenceDiagram
 
 ### Hydration Rules
 
-- `runtimeCache` mirrors the six storage keys after first hydration.
+- `runtimeCache` mirrors the seven storage keys after first hydration.
 - `hydratePromise` prevents duplicate parallel storage reads during cold start.
 - `chrome.storage.onChanged` updates the cache when local storage changes.
 - `setStorageIfChanged()` deep-compares normalized values and skips unchanged writes.

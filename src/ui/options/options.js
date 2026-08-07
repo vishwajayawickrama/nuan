@@ -174,11 +174,11 @@ document.addEventListener("keydown", (event) => {
 async function loadSettings() {
   let settings;
   let browsingSettings;
-  let lock;
   try {
-    settings = await NuanRuntime.sendMessage({ type: "getSettings" });
-    browsingSettings = await NuanRuntime.sendMessage({ type: "getBrowsingSettings" });
-    lock = await NuanRuntime.sendMessage({ type: "getSettingsLock" });
+    [settings, browsingSettings] = await Promise.all([
+      NuanRuntime.sendMessage({ type: "getSettings" }),
+      NuanRuntime.sendMessage({ type: "getBrowsingSettings" })
+    ]);
   } catch (error) {
     const errorMessage = error?.message || "Unable to load settings.";
     message.textContent = errorMessage;
@@ -192,6 +192,13 @@ async function loadSettings() {
   browsingAnalyticsEnabled.checked = browsingSettings.enabled;
   excludedDomains.value = browsingSettings.excludedDomains.join("\n");
   renderDomains();
+
+  let lock;
+  try {
+    lock = await NuanRuntime.sendMessage({ type: "getSettingsLock" });
+  } catch (_error) {
+    return;
+  }
 
   if (lock?.ok) {
     lockState = { allowed: lock.allowed, monthlyUsed: lock.monthlyUsed, monthlyLimit: lock.monthlyLimit, nextChangeAt: lock.nextChangeAt };
@@ -365,6 +372,15 @@ function applyLockState() {
   const submitButton = form.querySelector("button[type='submit']");
   if (submitButton) {
     submitButton.disabled = locked;
+  }
+
+  const domainsCard = form.querySelector(".domains-card");
+  if (domainsCard) {
+    if (locked) {
+      domainsCard.dataset.locked = "true";
+    } else {
+      delete domainsCard.dataset.locked;
+    }
   }
 
   if (!locked) {

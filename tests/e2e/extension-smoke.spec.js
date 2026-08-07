@@ -61,9 +61,11 @@ test("settings lock keeps values visible but disables editing", async ({ extensi
 
   await options.evaluate(async () => {
     const now = Date.now();
+    const current = new Date();
+    const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
     await chrome.storage.local.set({
       settings: { limitMinutes: 5, domains: ["facebook.com", "instagram.com"] },
-      settingsLock: { lastChangeAt: now - 1000, monthlyChanges: 1, monthKey: "2099-12" }
+      settingsLock: { lastChangeAt: now - 1000, monthlyChanges: 1, monthKey }
     });
   });
   await options.reload();
@@ -76,6 +78,28 @@ test("settings lock keeps values visible but disables editing", async ({ extensi
   await expect(options.locator("form button[type='submit']")).toBeDisabled();
 });
 
+test("settings lock shows monthly-limit banner when monthly cap is reached", async ({ extensionPage }) => {
+  const options = await extensionPage("src/ui/options/options.html");
+  await clearExtensionStorage(options);
+  await options.reload();
+
+  await options.evaluate(async () => {
+    const now = Date.now();
+    const current = new Date();
+    const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
+    await chrome.storage.local.set({
+      settings: { limitMinutes: 5, domains: ["facebook.com", "instagram.com"] },
+      settingsLock: { lastChangeAt: now - 10 * 24 * 60 * 60 * 1000, monthlyChanges: 2, monthKey }
+    });
+  });
+  await options.reload();
+
+  await expect(options.locator("#settingsLockBanner")).toBeVisible();
+  await expect(options.locator("#settingsLockBanner")).toContainText("2/2");
+  await expect(options.locator("#limitMinutes")).toBeDisabled();
+  await expect(options.locator("form button[type='submit']")).toBeDisabled();
+});
+
 test("settings lock allows a change after the weekly window", async ({ extensionPage }) => {
   const options = await extensionPage("src/ui/options/options.html");
   await clearExtensionStorage(options);
@@ -83,9 +107,11 @@ test("settings lock allows a change after the weekly window", async ({ extension
 
   await options.evaluate(async () => {
     const now = Date.now();
+    const current = new Date();
+    const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
     await chrome.storage.local.set({
       settings: { limitMinutes: 5, domains: ["facebook.com", "instagram.com"] },
-      settingsLock: { lastChangeAt: now - 10 * 24 * 60 * 60 * 1000, monthlyChanges: 0, monthKey: "2099-12" }
+      settingsLock: { lastChangeAt: now - 10 * 24 * 60 * 60 * 1000, monthlyChanges: 0, monthKey }
     });
   });
   await options.reload();

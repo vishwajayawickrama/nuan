@@ -67,8 +67,8 @@ const DEFAULT_STATE = {
 };
 
 const RESET_INTERVAL_MS = 6 * 60 * 60 * 1000;
-const SETTINGS_CHANGE_LOCK_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const SETTINGS_CHANGE_MONTH_LIMIT = 2;
+const SETTINGS_CHANGE_LOCK_WEEK_MS = Logic.SETTINGS_CHANGE_LOCK_WEEK_MS || (7 * 24 * 60 * 60 * 1000);
+const SETTINGS_CHANGE_MONTH_LIMIT = Logic.SETTINGS_CHANGE_MONTH_LIMIT || 2;
 const LEGACY_TICK_ALARM = "social-media-time-guard-tick";
 const ACTIVE_SYNC_ALARM = "nuan-active-sync";
 const SOCIAL_ENFORCE_ALARM = "nuan-social-enforce";
@@ -449,15 +449,13 @@ async function saveSettings(rawSettings) {
     };
   }
 
-  await setStorageIfChanged({ settings });
-
   const updatedLock = Logic.applySettingsChange
     ? Logic.applySettingsChange(runtimeCache.settingsLock, now)
     : applySettingsChangeFallback(runtimeCache.settingsLock, now);
-  await setStorageIfChanged({ settingsLock: updatedLock });
+  await setStorageIfChanged({ settings, settingsLock: updatedLock });
 
   await processActiveContext({ reason: "settings-saved" });
-  return { ok: true, settings, lock: await getLockSummary(now) };
+  return { ok: true, settings, lock: await getLockSummary(now, updatedLock) };
 }
 
 async function saveBrowsingAnalyticsSettings(rawSettings = {}) {
@@ -1119,31 +1117,30 @@ function normalizeSettings(settings = {}) {
   };
 }
 
-function computeMonthlyUsed(now = Date.now()) {
-  const lock = runtimeCache?.settingsLock || DEFAULT_SETTINGS_LOCK;
+function computeMonthlyUsed(now = Date.now(), lock = runtimeCache?.settingsLock || DEFAULT_SETTINGS_LOCK) {
   const currentMonth = Logic.getMonthKey
     ? Logic.getMonthKey(now)
     : getMonthKeyFallback(now);
   return lock.monthKey === currentMonth ? lock.monthlyChanges : 0;
 }
 
-async function getLockSummary(now = Date.now()) {
+async function getLockSummary(now = Date.now(), lock = runtimeCache.settingsLock) {
   const check = Logic.isSettingsChangeAllowed
-    ? Logic.isSettingsChangeAllowed(runtimeCache.settingsLock, now)
-    : isSettingsChangeAllowedFallback(runtimeCache.settingsLock, now);
+    ? Logic.isSettingsChangeAllowed(lock, now)
+    : isSettingsChangeAllowedFallback(lock, now);
   return {
     allowed: check.allowed,
     reason: check.reason,
     nextChangeAt: check.nextChangeAt,
     monthKey: check.monthKey,
-    monthlyUsed: computeMonthlyUsed(now),
+    monthlyUsed: computeMonthlyUsed(now, lock),
     monthlyLimit: SETTINGS_CHANGE_MONTH_LIMIT
   };
 }
 
-function normalizeSettingsLock(lock) {
+function normalizeSettingsLock(lock, now = Date.now()) {
   if (Logic.normalizeSettingsLock) {
-    return Logic.normalizeSettingsLock(lock);
+    return Logic.normalizeSettingsLock(lock, now);
   }
 
   const normalized = {
@@ -1151,7 +1148,8 @@ function normalizeSettingsLock(lock) {
     monthlyChanges: 0,
     monthKey: null
   };
-  normalized.lastChangeAt = Number.isFinite(lock?.lastChangeAt) ? Math.max(0, lock.lastChangeAt) : null;
+  const rawLastChangeAt = Number.isFinite(lock?.lastChangeAt) ? Math.max(0, lock.lastChangeAt) : null;
+  normalized.lastChangeAt = rawLastChangeAt === null ? null : Math.min(rawLastChangeAt, now);
   normalized.monthlyChanges = Math.max(0, Number.parseInt(lock?.monthlyChanges, 10) || 0);
   normalized.monthKey =
     typeof lock?.monthKey === "string" && /^\d{4}-\d{2}$/.test(lock.monthKey) ? lock.monthKey : null;
@@ -1163,13 +1161,18 @@ function getMonthKeyFallback(now = Date.now()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function getNextMonthStartFallback(now = Date.now()) {
+  const date = new Date(now);
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1, 0, 0, 0, 0).getTime();
+}
+
 function isSettingsChangeAllowedFallback(lock, now = Date.now()) {
-  const normalized = normalizeSettingsLock(lock);
+  const normalized = normalizeSettingsLock(lock, now);
   const monthKey = getMonthKeyFallback(now);
   const monthlyChanges = normalized.monthKey === monthKey ? normalized.monthlyChanges : 0;
 
   if (monthlyChanges >= SETTINGS_CHANGE_MONTH_LIMIT) {
-    return { allowed: false, reason: "monthly", nextChangeAt: null, monthKey };
+    return { allowed: false, reason: "monthly", nextChangeAt: getNextMonthStartFallback(now), monthKey };
   }
 
   if (normalized.lastChangeAt && now < normalized.lastChangeAt + SETTINGS_CHANGE_LOCK_WEEK_MS) {
@@ -1180,7 +1183,7 @@ function isSettingsChangeAllowedFallback(lock, now = Date.now()) {
 }
 
 function applySettingsChangeFallback(lock, now = Date.now()) {
-  const normalized = normalizeSettingsLock(lock);
+  const normalized = normalizeSettingsLock(lock, now);
   const monthKey = getMonthKeyFallback(now);
   normalized.monthlyChanges = (normalized.monthKey === monthKey ? normalized.monthlyChanges : 0) + 1;
   normalized.monthKey = monthKey;

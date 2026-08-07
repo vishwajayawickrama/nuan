@@ -163,6 +163,15 @@ test("applySettingsChange increments monthly count and stamps last change", () =
   assert.equal(lock.monthKey, "2026-01");
 });
 
+test("applySettingsChange resets the monthly count when the month changes", () => {
+  const now = new Date(2026, 1, 5, 12, 0, 0).getTime();
+  const lock = logic.applySettingsChange({ lastChangeAt: now - 8 * 24 * 60 * 60 * 1000, monthlyChanges: 2, monthKey: "2026-01" }, now);
+
+  assert.equal(lock.lastChangeAt, now);
+  assert.equal(lock.monthlyChanges, 1);
+  assert.equal(lock.monthKey, "2026-02");
+});
+
 test("normalizes a missing or malformed settings lock", () => {
   assert.deepEqual(logic.normalizeSettingsLock(undefined), logic.createDefaultSettingsLock());
   assert.equal(logic.normalizeSettingsLock({ lastChangeAt: "bad", monthlyChanges: -5, monthKey: 2 }).monthlyChanges, 0);
