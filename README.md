@@ -13,21 +13,10 @@ Version: `0.2.0.alpha.3`
 
 ## Features
 
-### Daily time allowance
-
-Default 5 minutes per day on tracked social media sites, with a six-hour reset window from first use.
-
-### Active-tab tracking
-
-Time counts only while a tracked domain is active in the focused browser window.
-
-### Automatic blocking
-
-Tracked tabs close when the allowance runs out, and future visits stay blocked until the reset window expires.
-
-### Local-first analytics
-
-Daily tracked time, no-use streaks, and a browsing dashboard — stored entirely on-device.
+- **Daily time allowance** — default 5 minutes per day on tracked social media sites, with a six-hour reset window from first use.
+- **Active-tab tracking** — time counts only while a tracked domain is active in the focused browser window.
+- **Automatic blocking** — tracked tabs close when the allowance runs out, and future visits stay blocked until the reset window expires.
+- **Local-first analytics** — daily tracked time, no-use streaks, and a browsing dashboard stored entirely on-device.
 
 ## Default Tracked Domains
 
