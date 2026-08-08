@@ -1,6 +1,6 @@
 {
   "name": "nuan-extension",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "check": "python3 -m json.tool manifest.json > /dev/null && node --check src/background/background.js && node --check src/content/content.js && node --check src/shared/dot-canvas.js && node --check src/shared/runtime-messaging.js && node --check src/shared/logic/core.js && node --check src/ui/analytics/analytics.js && node --check src/ui/options/options.js && node --check src/ui/popup/popup.js",
