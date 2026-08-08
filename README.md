@@ -122,4 +122,4 @@ node --check src/ui/popup/popup.js
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+WTFPL v2. You just do what the fuck you want to. See [LICENSE](LICENSE).
