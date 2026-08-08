@@ -138,10 +138,11 @@ The content script runs in Chrome's isolated extension world. It can manipulate 
 | --- | --- | --- | --- |
 | `getStatus` | popup | `getStatus()` | Current limit, remaining time, blocked state, reset time, active state, and current host. |
 | `getSettings` | options, tests | `getSettings()` | Normalized social limit settings. |
+| `getSettingsLock` | options, tests | `getSettingsLock()` | Whether a social settings change is allowed, the next unlock time, and monthly change usage. |
 | `getBrowsingSettings` | options, tests | `getBrowsingSettings()` | Normalized browsing analytics settings. |
 | `getAnalytics` | analytics page | `getAnalytics()` | Social daily totals, no-use streak, and most-used domains. |
 | `getBrowsingAnalytics` | analytics page | `getBrowsingAnalytics()` | Browsing today/week/average, top domains, recent days, hourly activity, and recent sessions. |
-| `saveSettings` | options | `saveSettings(settings)` | Validates and persists social limit and domains. |
+| `saveSettings` | options | `saveSettings(settings)` | Validates and persists social limit and domains, enforcing the weekly/monthly change lock. |
 | `saveBrowsingAnalyticsSettings` | options | `saveBrowsingAnalyticsSettings(settings)` | Syncs current browsing usage, persists analytics settings, and refreshes context. |
 | `clearBrowsingAnalytics` | options | `clearBrowsingAnalytics()` | Resets browsing state and browsing analytics. |
 
@@ -176,7 +177,7 @@ sequenceDiagram
   participant Tabs as Active tab lookup
 
   Chrome->>BG: onInstalled or onStartup
-  BG->>Store: get(settings, state, analytics, browsingSettings, browsingState, browsingAnalytics)
+  BG->>Store: get(settings, settingsLock, state, analytics, browsingSettings, browsingState, browsingAnalytics)
   BG->>BG: normalize all storage objects
   alt normalized data differs from stored data
     BG->>Store: set(changed defaults/normalized values)
@@ -191,7 +192,7 @@ sequenceDiagram
 
 ### Hydration Rules
 
-- `runtimeCache` mirrors the six storage keys after first hydration.
+- `runtimeCache` mirrors the seven storage keys after first hydration.
 - `hydratePromise` prevents duplicate parallel storage reads during cold start.
 - `chrome.storage.onChanged` updates the cache when local storage changes.
 - `setStorageIfChanged()` deep-compares normalized values and skips unchanged writes.
@@ -417,13 +418,14 @@ Alarm names:
 
 ## Storage Schema
 
-All durable state lives in `chrome.storage.local` under six top-level keys.
+All durable state lives in `chrome.storage.local` under seven top-level keys.
 
 ```mermaid
 flowchart LR
   Store[(chrome.storage.local)]
 
   Store --> Settings["settings\nlimitMinutes: number\ndomains: string[]"]
+  Store --> SettingsLock["settingsLock\nlastChangeAt\nmonthlyChanges\nmonthKey"]
   Store --> State["state\nwindowStart\nusedMs\nactiveTabId\nactiveWindowId\nactiveSessionStart\nactiveDomain\noneMinuteWarningWindowStart\ncountdownWindowStart"]
   Store --> SocialAnalytics["analytics\ncreatedAt\ndays[YYYY-MM-DD].totalMs\ndays[YYYY-MM-DD].domains[domain]"]
   Store --> BrowsingSettings["browsingSettings\nenabled: boolean\nexcludedDomains: string[]"]
@@ -438,6 +440,7 @@ flowchart LR
 | Key | Normalizer | Notes |
 | --- | --- | --- |
 | `settings` | `normalizeSettings()` | Enforces positive limit and normalized unique domains. |
+| `settingsLock` | `normalizeSettingsLock()` | Clamps monthly count, stamps month key, and timestamps last change. |
 | `state` | spread over `DEFAULT_STATE` | Preserves known fields and fills missing fields. |
 | `analytics` | `normalizeAnalytics()` | Keeps valid local-date keys and positive domain totals. |
 | `browsingSettings` | `normalizeBrowsingSettings()` | Defaults enabled to true and normalizes excluded domains. |

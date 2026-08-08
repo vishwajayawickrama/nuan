@@ -49,6 +49,12 @@ const DEFAULT_BROWSING_SETTINGS = {
   excludedDomains: DEFAULT_PRIVATE_DOMAINS
 };
 
+const DEFAULT_SETTINGS_LOCK = {
+  lastChangeAt: null,
+  monthlyChanges: 0,
+  monthKey: null
+};
+
 const DEFAULT_STATE = {
   windowStart: null,
   usedMs: 0,
@@ -61,6 +67,8 @@ const DEFAULT_STATE = {
 };
 
 const RESET_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const SETTINGS_CHANGE_LOCK_WEEK_MS = Logic.SETTINGS_CHANGE_LOCK_WEEK_MS || (7 * 24 * 60 * 60 * 1000);
+const SETTINGS_CHANGE_MONTH_LIMIT = Logic.SETTINGS_CHANGE_MONTH_LIMIT || 2;
 const LEGACY_TICK_ALARM = "social-media-time-guard-tick";
 const ACTIVE_SYNC_ALARM = "nuan-active-sync";
 const SOCIAL_ENFORCE_ALARM = "nuan-social-enforce";
@@ -72,7 +80,8 @@ const STORAGE_KEYS = [
   "analytics",
   "browsingSettings",
   "browsingState",
-  "browsingAnalytics"
+  "browsingAnalytics",
+  "settingsLock"
 ];
 
 let runtimeCache = null;
@@ -150,6 +159,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "getBrowsingSettings") {
     respondAsync(getBrowsingSettings(), sendResponse);
+    return true;
+  }
+
+  if (message?.type === "getSettingsLock") {
+    respondAsync(getSettingsLock(), sendResponse);
     return true;
   }
 
@@ -244,7 +258,10 @@ async function hydrateRuntimeCache() {
       : createDefaultBrowsingState(),
     browsingAnalytics: data.browsingAnalytics
       ? normalizeBrowsingAnalytics(data.browsingAnalytics)
-      : createDefaultBrowsingAnalytics()
+      : createDefaultBrowsingAnalytics(),
+    settingsLock: data.settingsLock
+      ? normalizeSettingsLock(data.settingsLock)
+      : DEFAULT_SETTINGS_LOCK
   };
 
   for (const key of STORAGE_KEYS) {
@@ -287,6 +304,10 @@ function applyStorageChangesToCache(changes) {
 
   if (changes.browsingAnalytics) {
     runtimeCache.browsingAnalytics = normalizeBrowsingAnalytics(changes.browsingAnalytics.newValue);
+  }
+
+  if (changes.settingsLock) {
+    runtimeCache.settingsLock = normalizeSettingsLock(changes.settingsLock.newValue);
   }
 }
 
@@ -340,6 +361,24 @@ async function getBrowsingSettings() {
   return cloneData(runtimeCache.browsingSettings);
 }
 
+async function getSettingsLock() {
+  await ensureDefaults();
+  const now = Date.now();
+  const check = Logic.isSettingsChangeAllowed
+    ? Logic.isSettingsChangeAllowed(runtimeCache.settingsLock, now)
+    : isSettingsChangeAllowedFallback(runtimeCache.settingsLock, now);
+  return {
+    ok: true,
+    allowed: check.allowed,
+    reason: check.reason,
+    nextChangeAt: check.nextChangeAt,
+    monthKey: check.monthKey,
+    monthlyUsed: computeMonthlyUsed(now),
+    monthlyLimit: SETTINGS_CHANGE_MONTH_LIMIT,
+    now
+  };
+}
+
 async function getBrowsingState() {
   await ensureDefaults();
   return cloneData(runtimeCache.browsingState);
@@ -381,9 +420,42 @@ async function saveSettings(rawSettings) {
     };
   }
 
-  await setStorageIfChanged({ settings });
+  await ensureDefaults();
+
+  if (isSameData(runtimeCache.settings, settings)) {
+    return { ok: true, settings };
+  }
+
+  const now = Date.now();
+  const check = Logic.isSettingsChangeAllowed
+    ? Logic.isSettingsChangeAllowed(runtimeCache.settingsLock, now)
+    : isSettingsChangeAllowedFallback(runtimeCache.settingsLock, now);
+
+  if (!check.allowed) {
+    const error = check.reason === "monthly"
+      ? `You can change your restriction settings at most ${SETTINGS_CHANGE_MONTH_LIMIT} times per month. Try again next month.`
+      : "Your restriction settings are locked for 1 week after a change. You can change them next week.";
+    return {
+      ok: false,
+      error,
+      lock: {
+        allowed: false,
+        reason: check.reason,
+        nextChangeAt: check.nextChangeAt,
+        monthKey: check.monthKey,
+        monthlyUsed: computeMonthlyUsed(now),
+        monthlyLimit: SETTINGS_CHANGE_MONTH_LIMIT
+      }
+    };
+  }
+
+  const updatedLock = Logic.applySettingsChange
+    ? Logic.applySettingsChange(runtimeCache.settingsLock, now)
+    : applySettingsChangeFallback(runtimeCache.settingsLock, now);
+  await setStorageIfChanged({ settings, settingsLock: updatedLock });
+
   await processActiveContext({ reason: "settings-saved" });
-  return { ok: true, settings };
+  return { ok: true, settings, lock: await getLockSummary(now, updatedLock) };
 }
 
 async function saveBrowsingAnalyticsSettings(rawSettings = {}) {
@@ -1043,6 +1115,80 @@ function normalizeSettings(settings = {}) {
     limitMinutes: normalizeLimit(settings.limitMinutes),
     domains: normalizeDomains(settings.domains)
   };
+}
+
+function computeMonthlyUsed(now = Date.now(), lock = runtimeCache?.settingsLock || DEFAULT_SETTINGS_LOCK) {
+  const currentMonth = Logic.getMonthKey
+    ? Logic.getMonthKey(now)
+    : getMonthKeyFallback(now);
+  return lock.monthKey === currentMonth ? lock.monthlyChanges : 0;
+}
+
+async function getLockSummary(now = Date.now(), lock = runtimeCache.settingsLock) {
+  const check = Logic.isSettingsChangeAllowed
+    ? Logic.isSettingsChangeAllowed(lock, now)
+    : isSettingsChangeAllowedFallback(lock, now);
+  return {
+    allowed: check.allowed,
+    reason: check.reason,
+    nextChangeAt: check.nextChangeAt,
+    monthKey: check.monthKey,
+    monthlyUsed: computeMonthlyUsed(now, lock),
+    monthlyLimit: SETTINGS_CHANGE_MONTH_LIMIT
+  };
+}
+
+function normalizeSettingsLock(lock, now = Date.now()) {
+  if (Logic.normalizeSettingsLock) {
+    return Logic.normalizeSettingsLock(lock, now);
+  }
+
+  const normalized = {
+    lastChangeAt: null,
+    monthlyChanges: 0,
+    monthKey: null
+  };
+  const rawLastChangeAt = Number.isFinite(lock?.lastChangeAt) ? Math.max(0, lock.lastChangeAt) : null;
+  normalized.lastChangeAt = rawLastChangeAt === null ? null : Math.min(rawLastChangeAt, now);
+  normalized.monthlyChanges = Math.max(0, Number.parseInt(lock?.monthlyChanges, 10) || 0);
+  normalized.monthKey =
+    typeof lock?.monthKey === "string" && /^\d{4}-\d{2}$/.test(lock.monthKey) ? lock.monthKey : null;
+  return normalized;
+}
+
+function getMonthKeyFallback(now = Date.now()) {
+  const date = new Date(now);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getNextMonthStartFallback(now = Date.now()) {
+  const date = new Date(now);
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1, 0, 0, 0, 0).getTime();
+}
+
+function isSettingsChangeAllowedFallback(lock, now = Date.now()) {
+  const normalized = normalizeSettingsLock(lock, now);
+  const monthKey = getMonthKeyFallback(now);
+  const monthlyChanges = normalized.monthKey === monthKey ? normalized.monthlyChanges : 0;
+
+  if (monthlyChanges >= SETTINGS_CHANGE_MONTH_LIMIT) {
+    return { allowed: false, reason: "monthly", nextChangeAt: getNextMonthStartFallback(now), monthKey };
+  }
+
+  if (normalized.lastChangeAt && now < normalized.lastChangeAt + SETTINGS_CHANGE_LOCK_WEEK_MS) {
+    return { allowed: false, reason: "weekly", nextChangeAt: normalized.lastChangeAt + SETTINGS_CHANGE_LOCK_WEEK_MS, monthKey };
+  }
+
+  return { allowed: true, reason: null, nextChangeAt: null, monthKey };
+}
+
+function applySettingsChangeFallback(lock, now = Date.now()) {
+  const normalized = normalizeSettingsLock(lock, now);
+  const monthKey = getMonthKeyFallback(now);
+  normalized.monthlyChanges = (normalized.monthKey === monthKey ? normalized.monthlyChanges : 0) + 1;
+  normalized.monthKey = monthKey;
+  normalized.lastChangeAt = now;
+  return normalized;
 }
 
 function normalizeLimit(value) {

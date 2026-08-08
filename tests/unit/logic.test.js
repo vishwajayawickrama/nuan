@@ -94,3 +94,98 @@ test("normalizes browsing settings with fallback excluded domains", () => {
   assert.equal(settings.enabled, false);
   assert.deepEqual(settings.excludedDomains, ["bank.com"]);
 });
+
+test("allows the first settings change with no prior lock", () => {
+  const now = new Date(2026, 0, 5, 12, 0, 0).getTime();
+  const check = logic.isSettingsChangeAllowed(logic.createDefaultSettingsLock(), now);
+
+  assert.equal(check.allowed, true);
+  assert.equal(check.monthKey, "2026-01");
+});
+
+test("blocks a settings change within one week of the last change", () => {
+  const now = new Date(2026, 0, 5, 12, 0, 0).getTime();
+  const lock = {
+    lastChangeAt: now - 3 * 24 * 60 * 60 * 1000,
+    monthlyChanges: 1,
+    monthKey: "2026-01"
+  };
+  const check = logic.isSettingsChangeAllowed(lock, now);
+
+  assert.equal(check.allowed, false);
+  assert.equal(check.reason, "weekly");
+  assert.equal(check.nextChangeAt, lock.lastChangeAt + logic.SETTINGS_CHANGE_LOCK_WEEK_MS);
+});
+
+test("allows a settings change once the weekly lock expires", () => {
+  const now = new Date(2026, 0, 5, 12, 0, 0).getTime();
+  const lock = {
+    lastChangeAt: now - 8 * 24 * 60 * 60 * 1000,
+    monthlyChanges: 1,
+    monthKey: "2026-01"
+  };
+
+  assert.equal(logic.isSettingsChangeAllowed(lock, now).allowed, true);
+});
+
+test("blocks a settings change once the monthly cap of 2 is reached", () => {
+  const now = new Date(2026, 0, 20, 12, 0, 0).getTime();
+  const lock = {
+    lastChangeAt: now - 8 * 24 * 60 * 60 * 1000,
+    monthlyChanges: 2,
+    monthKey: "2026-01"
+  };
+  const check = logic.isSettingsChangeAllowed(lock, now);
+
+  assert.equal(check.allowed, false);
+  assert.equal(check.reason, "monthly");
+});
+
+test("monthly counter resets at the start of a new month", () => {
+  const now = new Date(2026, 1, 5, 12, 0, 0).getTime();
+  const lock = {
+    lastChangeAt: now - 8 * 24 * 60 * 60 * 1000,
+    monthlyChanges: 2,
+    monthKey: "2026-01"
+  };
+  const check = logic.isSettingsChangeAllowed(lock, now);
+
+  assert.equal(check.monthKey, "2026-02");
+  assert.equal(check.allowed, true);
+});
+
+test("applySettingsChange increments monthly count and stamps last change", () => {
+  const now = new Date(2026, 0, 5, 12, 0, 0).getTime();
+  const lock = logic.applySettingsChange({ lastChangeAt: now - 8 * 24 * 60 * 60 * 1000, monthlyChanges: 1, monthKey: "2026-01" }, now);
+
+  assert.equal(lock.lastChangeAt, now);
+  assert.equal(lock.monthlyChanges, 2);
+  assert.equal(lock.monthKey, "2026-01");
+});
+
+test("applySettingsChange resets the monthly count when the month changes", () => {
+  const now = new Date(2026, 1, 5, 12, 0, 0).getTime();
+  const lock = logic.applySettingsChange({ lastChangeAt: now - 8 * 24 * 60 * 60 * 1000, monthlyChanges: 2, monthKey: "2026-01" }, now);
+
+  assert.equal(lock.lastChangeAt, now);
+  assert.equal(lock.monthlyChanges, 1);
+  assert.equal(lock.monthKey, "2026-02");
+});
+
+test("normalizes a missing or malformed settings lock", () => {
+  assert.deepEqual(logic.normalizeSettingsLock(undefined), logic.createDefaultSettingsLock());
+  assert.equal(logic.normalizeSettingsLock({ lastChangeAt: "bad", monthlyChanges: -5, monthKey: 2 }).monthlyChanges, 0);
+});
+
+test("weekly lock still applies even when monthly cap is not reached", () => {
+  const now = new Date(2026, 0, 5, 12, 0, 0).getTime();
+  const lock = {
+    lastChangeAt: now - 2 * 24 * 60 * 60 * 1000,
+    monthlyChanges: 0,
+    monthKey: "2026-01"
+  };
+  const check = logic.isSettingsChangeAllowed(lock, now);
+
+  assert.equal(check.allowed, false);
+  assert.equal(check.reason, "weekly");
+});

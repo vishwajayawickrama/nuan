@@ -302,6 +302,52 @@ label {
   font-size: 15px;
 }
 
+.lock-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--warning-text);
+  border-radius: 0;
+  background:
+    radial-gradient(circle, var(--grid-dot) 1px, transparent 1px) 0 0 / 30px 30px,
+    var(--warning-bg);
+  padding: 16px 20px;
+  box-shadow: 10px 10px 0 var(--shadow);
+}
+
+.lock-banner[hidden] {
+  display: none;
+}
+
+.lock-banner-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--warning-text);
+  background: var(--surface);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.lock-banner-title {
+  margin: 0 0 4px;
+  color: var(--warning-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.lock-banner-message {
+  margin: 0;
+  color: var(--warning-text);
+}
+
+.field-card[data-locked] .domain-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .limit-card {
   grid-template-columns: minmax(160px, 0.28fr) minmax(220px, 1fr);
   align-items: center;

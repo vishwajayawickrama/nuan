@@ -21,6 +21,14 @@
       </header>
 
       <form id="settingsForm">
+        <div id="settingsLockBanner" class="lock-banner" role="status" hidden>
+          <div class="lock-banner-icon" aria-hidden="true">&#128274;</div>
+          <div>
+            <p class="lock-banner-title">Settings locked</p>
+            <p id="lockBannerMessage" class="lock-banner-message">Changes are limited to once per week.</p>
+          </div>
+        </div>
+
         <section class="field-card limit-card">
           <label for="limitMinutes">Daily time limit</label>
           <div class="number-control">
