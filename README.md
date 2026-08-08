@@ -1,5 +1,10 @@
 # Nuan
 
+![version](https://img.shields.io/badge/version-0.2.0.alpha.3-blue)
+![license](https://img.shields.io/github/license/vishwajayawickrama/nuan)
+![manifest version](https://img.shields.io/badge/manifest-v3-orange)
+![platform](https://img.shields.io/badge/platform-chromium-8A2BE2)
+
 Reclaim the present.
 
 Nuan is a Chromium Manifest V3 extension that limits active social media browsing time and tracks overall active browsing patterns locally. It only counts time while a domain is active in the focused browser window.
