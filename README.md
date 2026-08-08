@@ -6,16 +6,6 @@ Nuan is a Chromium Manifest V3 extension that limits active social media browsin
 
 Version: `0.2.0.alpha.3`
 
-## Release History
-
-| Version | Git tag | Highlights |
-| --- | --- | --- |
-| `0.2.0.alpha.3` (current) | `v0.2.0-alpha.3` | Minor bump. Settings lock (once per week, twice per month), `NuanRuntime` messaging helper, runtime tracking optimization. |
-| `0.1.1.alpha.2` | — | Web Store publishing docs, overall browsing analytics, warning for blocked visits, automated test framework. |
-| `0.1.1.alpha.1` | — | Alpha version metadata, local social-media time tracking and blocking. |
-
-`0.2.0.alpha.3` is the first release with a git tag. Future releases are tagged as `v<version>` per `docs/CHROME_WEB_STORE_PUBLISHING.md`.
-
 ## Features
 
 - Default allowance of 5 minutes.
@@ -46,44 +36,6 @@ Version: `0.2.0.alpha.3`
 - `pinterest.com`
 
 `youtube.com` is available as a suggested domain in settings.
-
-## Project Structure
-
-```text
-.
-├── manifest.json
-├── icons/
-├── resources/
-├── src/
-│   ├── background/
-│   │   └── background.js
-│   ├── content/
-│   │   └── content.js
-│   ├── shared/
-│   │   ├── dot-canvas.js
-│   │   └── logic/
-│   │       └── core.js
-│   └── ui/
-│       ├── styles.css
-│       ├── analytics/
-│       │   ├── analytics.html
-│       │   └── analytics.js
-│       ├── options/
-│       │   ├── options.html
-│       │   └── options.js
-│       └── popup/
-│           ├── popup.html
-│           └── popup.js
-├── docs/
-├── tests/
-└── TODOs.md
-```
-
-See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for entry points and ownership notes.
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for runtime architecture, diagrams, storage schema, and invariants.
-See [docs/CHROME_WEB_STORE_PUBLISHING.md](docs/CHROME_WEB_STORE_PUBLISHING.md) for Chrome Web Store packaging and submission steps.
-See [docs/MANUAL_QA_CHECKLIST.md](docs/MANUAL_QA_CHECKLIST.md) for lightweight manual verification steps.
-See [docs/TESTING.md](docs/TESTING.md) for automated test setup and commands.
 
 ## Load in Chromium
 
