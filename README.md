@@ -6,6 +6,16 @@ Nuan is a Chromium Manifest V3 extension that limits active social media browsin
 
 Version: `0.2.0.alpha.3`
 
+## Release History
+
+| Version | Git tag | Highlights |
+| --- | --- | --- |
+| `0.2.0.alpha.3` (current) | `v0.2.0-alpha.3` | Minor bump. Settings lock (once per week, twice per month), `NuanRuntime` messaging helper, runtime tracking optimization. |
+| `0.1.1.alpha.2` | — | Web Store publishing docs, overall browsing analytics, warning for blocked visits, automated test framework. |
+| `0.1.1.alpha.1` | — | Alpha version metadata, local social-media time tracking and blocking. |
+
+`0.2.0.alpha.3` is the first release with a git tag. Future releases are tagged as `v<version>` per `docs/CHROME_WEB_STORE_PUBLISHING.md`.
+
 ## Features
 
 - Default allowance of 5 minutes.
