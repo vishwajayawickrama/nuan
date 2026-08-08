@@ -119,3 +119,7 @@ node --check src/ui/popup/popup.js
 - `src/background/background.js` also references `src/content/content.js` for fallback programmatic injection.
 - Keep extension assets that Chrome resolves from the manifest, such as icons, at paths referenced by `manifest.json`.
 - Browsing analytics stores domains only. It does not store page titles, URL paths, query strings, or incognito/private tabs.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
