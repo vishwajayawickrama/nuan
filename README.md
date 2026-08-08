@@ -8,32 +8,25 @@ Version: `0.2.0.alpha.3`
 
 ## Features
 
-- Default allowance of 5 minutes.
-- Six-hour reset window from the first tracked social media use.
-- Time counts only for active tracked tabs in the focused browser window.
-- Tracked tabs close when the allowance is used.
-- Future visits to tracked domains close until the reset window expires.
-- Configurable time limit and tracked domains from the settings page.
-- Chip-based tracked-domain editor with add, remove, and confirmation flows.
-- Themed popup and settings UI based on the `vishwajayawickrama-site` paper/dot-canvas visual language.
-- In-page tracking toast, one-minute warning, and final `3`, `2`, `1` countdown.
-- In-page blocked toast with the next reset time before blocked tracked tabs close.
-- Popup status with remaining time, blocked state, and reset countdown.
-- Analytics page for daily tracked time, no-use streaks, and most-used domains.
-- Overall browsing dashboard with daily trends, hourly activity, top domains, and recent domain-only sessions.
-- Local-only browsing analytics with excluded private domains, idle pause, and clear-data controls.
+### Daily time allowance
+
+Default 5 minutes per day on tracked social media sites, with a six-hour reset window from first use.
+
+### Active-tab tracking
+
+Time counts only while a tracked domain is active in the focused browser window.
+
+### Automatic blocking
+
+Tracked tabs close when the allowance runs out, and future visits stay blocked until the reset window expires.
+
+### Local-first analytics
+
+Daily tracked time, no-use streaks, and a browsing dashboard — stored entirely on-device.
 
 ## Default Tracked Domains
 
-- `facebook.com`
-- `instagram.com`
-- `linkedin.com`
-- `tiktok.com`
-- `reddit.com`
-- `x.com`
-- `twitter.com`
-- `snapchat.com`
-- `pinterest.com`
+`facebook.com` · `instagram.com` · `linkedin.com` · `tiktok.com` · `reddit.com` · `x.com` · `twitter.com` · `snapchat.com` · `pinterest.com`
 
 `youtube.com` is available as a suggested domain in settings.
 
